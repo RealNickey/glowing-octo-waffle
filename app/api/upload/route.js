@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
+import { writeFile, mkdir, readdir } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
@@ -7,15 +7,17 @@ import sharp from "sharp";
 
 export async function POST(request) {
   try {
-    const formData = await request.formData();
-    const files = formData.getAll("photos");
+  const formData = await request.formData();
+  const files = formData.getAll("photos");
+  // Optional sessionId to append more photos to the same session
+  let providedSessionId = formData.get("sessionId");
 
     if (!files || files.length === 0) {
       return NextResponse.json({ error: "No files uploaded" }, { status: 400 });
     }
 
-    // Create session ID for this upload batch
-    const sessionId = uuidv4();
+  // Create or reuse session ID for this upload batch
+  const sessionId = (typeof providedSessionId === "string" && providedSessionId.trim()) ? providedSessionId.trim() : uuidv4();
     const uploadDir = path.join(process.cwd(), "uploads", sessionId);
 
     // Create upload directory if it doesn't exist
@@ -24,6 +26,12 @@ export async function POST(request) {
     }
 
     const uploadedFiles = [];
+
+    // Determine starting index based on existing frames
+    const existing = existsSync(uploadDir)
+      ? (await readdir(uploadDir)).filter((f) => /^(\d{6})\.jpe?g$/i.test(f)).sort()
+      : [];
+    let startIndex = existing.length; // next frame index (0-based)
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -41,7 +49,7 @@ export async function POST(request) {
       }
 
       // Generate sequential numeric filename for HD frames
-      const fileName = `${String(i + 1).padStart(6, "0")}.jpg`;
+  const fileName = `${String(startIndex + i + 1).padStart(6, "0")}.jpg`;
       const filePath = path.join(uploadDir, fileName);
 
       // Convert file to buffer

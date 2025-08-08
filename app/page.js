@@ -12,9 +12,12 @@ export default function PhotoDashboard() {
   const [dragActive, setDragActive] = useState(false);
   const [selectedPhotos, setSelectedPhotos] = useState([]);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
-  const [photos, setPhotos] = useState([]); // { id, name, size, previewUrl, width, height }
+  const [photos, setPhotos] = useState([]); // { id, file, name, size, previewUrl, width, height, serverFileName }
   const [uploading, setUploading] = useState(false);
   const [sessionId, setSessionId] = useState(null);
+  const [frameDuration, setFrameDuration] = useState(0.1);
+  const [creatingVideo, setCreatingVideo] = useState(false);
+  const [videoResult, setVideoResult] = useState(null);
   const fileInputRef = useRef(null);
 
   const filteredPhotos = photos.filter((p) => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -42,30 +45,98 @@ export default function PhotoDashboard() {
           previewUrl: url,
           width: dims.width,
           height: dims.height,
+          serverFileName: null,
         };
       })
     );
     setPhotos((prev) => [...newItems, ...prev]);
 
-    // auto-upload
-    await uploadToServer(files);
+    // auto-upload and map server filenames back to these items
+    await uploadToServer(files, newItems.map((i) => i.id));
   };
 
-  const uploadToServer = async (files) => {
+  const uploadToServer = async (files, newIds) => {
     try {
       setUploading(true);
       const formData = new FormData();
       files.forEach((f) => formData.append("photos", f));
+      if (sessionId) formData.append("sessionId", sessionId);
       const resp = await fetch("/api/upload", { method: "POST", body: formData });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data?.error || "Upload failed");
-      setSessionId(data.sessionId);
+      setSessionId((prev) => prev || data.sessionId || null);
+      const serverFiles = Array.isArray(data.files) ? data.files : [];
+      // Map returned server fileNames to the recently added items by order
+      setPhotos((prev) => {
+        const idQueue = [...newIds];
+        const mapped = prev.map((p) => {
+          if (!idQueue.length) return p;
+          if (newIds.includes(p.id)) {
+            const idx = newIds.indexOf(p.id);
+            const sf = serverFiles[idx]?.fileName || null;
+            return { ...p, serverFileName: sf };
+          }
+          return p;
+        });
+        return mapped;
+      });
     } catch (e) {
       console.error(e);
       // no-op UI toast here; keeping minimal
     } finally {
       setUploading(false);
     }
+  };
+
+  const deleteSelected = async () => {
+    if (!sessionId) return;
+    const toDelete = photos.filter((p) => selectedPhotos.includes(p.id) && p.serverFileName).map((p) => p.serverFileName);
+    if (toDelete.length === 0) return;
+    try {
+      const resp = await fetch("/api/delete-photos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId, files: toDelete }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data?.error || "Delete failed");
+
+      // Remove deleted from local state
+      const remaining = photos.filter((p) => !selectedPhotos.includes(p.id));
+      setSelectedPhotos([]);
+
+      // Re-map serverFileName for remaining based on new server order (ascending)
+      const newOrder = Array.isArray(data.files) ? data.files : [];
+      remaining.sort((a, b) => (a.serverFileName || "999999").localeCompare(b.serverFileName || "999999"));
+      const remapped = remaining.map((p, i) => ({ ...p, serverFileName: newOrder[i] || p.serverFileName }));
+      setPhotos(remapped);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const createVideo = async () => {
+    if (!sessionId) return;
+    setCreatingVideo(true);
+    setVideoResult(null);
+    try {
+      const resp = await fetch("/api/create-video", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId, frameDuration: Number(frameDuration) || 0.1 }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data?.error || "Video creation failed");
+      setVideoResult(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setCreatingVideo(false);
+    }
+  };
+
+  const downloadVideo = () => {
+    if (videoResult?.videoId) window.open(`/api/download-video/${videoResult.videoId}`, "_blank");
   };
 
   const handleDrag = (e) => {
@@ -178,6 +249,9 @@ export default function PhotoDashboard() {
                   <Button variant="ghost" size="sm" onClick={clearSelection} className="text-gray-600 hover:text-gray-800">
                     <X className="w-4 h-4" />
                   </Button>
+                  <Button variant="destructive" size="sm" onClick={deleteSelected} className="bg-red-600 hover:bg-red-700 text-white">
+                    <Trash2 className="w-4 h-4 mr-1" /> Delete
+                  </Button>
                 </div>
               )}
             </div>
@@ -242,6 +316,42 @@ export default function PhotoDashboard() {
         </div>
         <div className="flex-1">
           <div className="p-6">
+            {/* Convert to Video Panel */}
+            {sessionId && (
+              <div className="mb-6 p-4 border rounded-lg bg-gray-50">
+                <div className="flex items-end gap-4 flex-wrap">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Frame Duration (seconds per photo)</label>
+                    <input
+                      type="number"
+                      min={0.03}
+                      max={2}
+                      step={0.01}
+                      value={frameDuration}
+                      onChange={(e) => setFrameDuration(e.target.value)}
+                      className="w-40 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <Button onClick={createVideo} disabled={creatingVideo} className="bg-green-600 hover:bg-green-700 text-white">
+                    {creatingVideo ? "Creating..." : "Create Video"}
+                  </Button>
+                  {videoResult && (
+                    <Button onClick={downloadVideo} className="bg-purple-600 hover:bg-purple-700 text-white">
+                      <Download className="w-4 h-4 mr-2" /> Download Video
+                    </Button>
+                  )}
+                </div>
+                <p className="mt-2 text-xs text-gray-600">Video will include all photos in this session (selection above does not affect the video).</p>
+                {videoResult && (
+                  <div className="mt-3 text-sm text-gray-700">
+                    <div>Images processed: {videoResult.imageCount}</div>
+                    <div>Total duration: {videoResult.duration?.toFixed(2)}s</div>
+                    <div>Video ID: {videoResult.videoId}</div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {filteredPhotos.length > 0 ? (
               <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-4 space-y-4">
                 {filteredPhotos.map((photo, index) => (
