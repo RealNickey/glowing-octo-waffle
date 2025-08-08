@@ -6,6 +6,17 @@
 			"type": "shell",
 			"command": "npm run dev",
 			"args": []
+		},
+		{
+			"label": "Dev server",
+			"type": "shell",
+			"command": "npm run dev",
+			"args": [],
+			"isBackground": true,
+			"problemMatcher": [
+				"$eslint-stylish"
+			],
+			"group": "build"
 		}
 	]
 }

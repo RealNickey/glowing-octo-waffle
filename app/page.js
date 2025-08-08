@@ -33,6 +33,9 @@ export default function PhotoDashboard() {
   const [frameDuration, setFrameDuration] = useState(0.1);
   const [creatingVideo, setCreatingVideo] = useState(false);
   const [videoResult, setVideoResult] = useState(null);
+  const [uploadToYouTube, setUploadToYouTube] = useState(false);
+  const [ytTitle, setYtTitle] = useState("");
+  const [ytUploading, setYtUploading] = useState(false);
   const fileInputRef = useRef(null);
 
   const filteredPhotos = photos.filter((p) =>
@@ -156,12 +159,24 @@ export default function PhotoDashboard() {
     setCreatingVideo(true);
     setVideoResult(null);
     try {
+      const photosCount = photos.length;
+      const approxDuration = (Number(frameDuration) || 0.1) * photosCount;
+      const computedTitle = ytTitle?.trim()
+        ? ytTitle.trim()
+        : sessionId
+        ? `Session ${sessionId} Slideshow (${photosCount} photos, ${approxDuration.toFixed(
+            1
+          )}s)`
+        : undefined;
       const resp = await fetch("/api/create-video", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sessionId,
           frameDuration: Number(frameDuration) || 0.1,
+          uploadToYouTube,
+          youtubeTitle: computedTitle,
+          youtubePrivacy: "unlisted",
         }),
       });
       const data = await resp.json();
@@ -177,6 +192,47 @@ export default function PhotoDashboard() {
   const downloadVideo = () => {
     if (videoResult?.videoId)
       window.open(`/api/download-video/${videoResult.videoId}`, "_blank");
+  };
+
+  const connectYouTube = async () => {
+    try {
+      const resp = await fetch("/api/youtube/auth");
+      const data = await resp.json();
+      if (data?.url) window.open(data.url, "_blank");
+    } catch (e) {
+      console.error("Failed to start YouTube auth:", e);
+    }
+  };
+
+  const retryYouTubeUpload = async () => {
+    if (!videoResult?.videoId) return;
+    try {
+      setYtUploading(true);
+      const photosCount = photos.length;
+      const approxDuration = (Number(frameDuration) || 0.1) * photosCount;
+      const computedTitle = ytTitle?.trim()
+        ? ytTitle.trim()
+        : sessionId
+        ? `Session ${sessionId} Slideshow (${photosCount} photos, ${approxDuration.toFixed(
+            1
+          )}s)`
+        : `Session Video`;
+      const resp = await fetch("/api/youtube/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          videoId: videoResult.videoId,
+          title: computedTitle,
+          privacyStatus: "unlisted",
+        }),
+      });
+      const result = await resp.json();
+      setVideoResult((prev) => ({ ...prev, youtube: result }));
+    } catch (e) {
+      console.error("Retry YouTube upload failed:", e);
+    } finally {
+      setYtUploading(false);
+    }
   };
 
   const handleDrag = (e) => {
@@ -437,6 +493,46 @@ export default function PhotoDashboard() {
                       className="w-40 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={uploadToYouTube}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setUploadToYouTube(checked);
+                          if (checked && !ytTitle && sessionId) {
+                            const photosCount = photos.length;
+                            const approxDuration =
+                              (Number(frameDuration) || 0.1) * photosCount;
+                              // Pre-fill a sensible default title
+                            setYtTitle(
+                              `Session ${sessionId} Slideshow (${photosCount} photos, ${approxDuration.toFixed(1)}s)`
+                            );
+                          }
+                        }}
+                      />
+                      Upload to YouTube as Unlisted
+                    </label>
+                    {uploadToYouTube && (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={ytTitle}
+                          onChange={(e) => setYtTitle(e.target.value)}
+                          placeholder="YouTube title"
+                          className="w-80 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={connectYouTube}
+                        >
+                          Connect YouTube
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                   <Button
                     onClick={createVideo}
                     disabled={creatingVideo}
@@ -464,6 +560,47 @@ export default function PhotoDashboard() {
                       Total duration: {videoResult.duration?.toFixed(2)}s
                     </div>
                     <div>Video ID: {videoResult.videoId}</div>
+                    {videoResult.youtube && (
+                      <div className="mt-2">
+                        {videoResult.youtube.ok && videoResult.youtube.videoId ? (
+                          <a
+                            href={`https://youtu.be/${videoResult.youtube.videoId}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-blue-600 hover:underline"
+                          >
+                            View on YouTube
+                          </a>
+                        ) : videoResult.youtube.needsAuth ? (
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() =>
+                                window.open(
+                                  videoResult.youtube.authUrl || "/api/youtube/auth",
+                                  "_blank"
+                                )
+                              }
+                            >
+                              Authorize YouTube
+                            </Button>
+                            <Button
+                              type="button"
+                              onClick={retryYouTubeUpload}
+                              disabled={ytUploading}
+                              className="bg-red-600 hover:bg-red-700 text-white"
+                            >
+                              {ytUploading ? "Uploading..." : "Retry Upload"}
+                            </Button>
+                          </div>
+                        ) : videoResult.youtube.error ? (
+                          <div className="text-red-600">
+                            YouTube upload failed: {videoResult.youtube.error}
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
