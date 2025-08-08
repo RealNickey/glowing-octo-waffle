@@ -1,0 +1,188 @@
+import { NextRequest, NextResponse } from "next/server";
+import { readdir } from "fs/promises";
+import { existsSync } from "fs";
+import path from "path";
+import { spawn } from "child_process";
+import { v4 as uuidv4 } from "uuid";
+import sharp from "sharp";
+
+export async function POST(request) {
+  try {
+    const { sessionId, frameDuration = 0.1 } = await request.json();
+
+    if (!sessionId) {
+      return NextResponse.json(
+        { error: "Session ID is required" },
+        { status: 400 }
+      );
+    }
+
+    const uploadDir = path.join(process.cwd(), "uploads", sessionId);
+    const videoDir = path.join(process.cwd(), "videos");
+
+    // Check if upload directory exists
+    if (!existsSync(uploadDir)) {
+      return NextResponse.json(
+        { error: "Session not found or no uploaded files" },
+        { status: 404 }
+      );
+    }
+
+    // Get all image files from upload directory
+    const files = await readdir(uploadDir);
+    const imageFiles = files
+      .filter((file) => /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(file))
+      .sort(); // Sort to maintain order
+
+    if (imageFiles.length === 0) {
+      return NextResponse.json(
+        { error: "No image files found in session" },
+        { status: 400 }
+      );
+    }
+
+    // Create videos directory if it doesn't exist
+    if (!existsSync(videoDir)) {
+      await require("fs/promises").mkdir(videoDir, { recursive: true });
+    }
+
+    // Generate output filename
+    const videoId = uuidv4();
+    const outputPath = path.join(videoDir, `${videoId}.mp4`);
+
+    // Create video using preprocessed numbered frames to reduce CPU + errors
+    const success = await createVideoFromPreprocessedFrames({
+      inputDir: uploadDir,
+      imageFiles,
+      outputPath,
+      frameDuration,
+    });
+
+    if (success) {
+      return NextResponse.json({
+        message: "Video created successfully",
+        videoId: videoId,
+        filename: `${videoId}.mp4`,
+        path: `/api/download-video/${videoId}`,
+        imageCount: imageFiles.length,
+        duration: frameDuration * imageFiles.length,
+      });
+    } else {
+      return NextResponse.json(
+        { error: "Failed to create video" },
+        { status: 500 }
+      );
+    }
+  } catch (error) {
+    console.error("Video creation error:", error);
+    return NextResponse.json(
+      { error: "Failed to create video" },
+      { status: 500 }
+    );
+  }
+}
+
+async function createVideoFromPreprocessedFrames({
+  inputDir,
+  imageFiles,
+  outputPath,
+  frameDuration,
+}) {
+  // 1) Preprocess to numbered frames (1280x720, letterbox, JPG)
+  const framesDir = path.join(inputDir, "__frames");
+  const { mkdir, rm, access } = await import("fs/promises");
+
+  try {
+    await mkdir(framesDir, { recursive: true });
+  } catch {}
+
+  // Sequential processing to avoid CPU spikes; consistent size & SAR
+  for (let i = 0; i < imageFiles.length; i++) {
+    const src = path.join(inputDir, imageFiles[i]);
+    const dst = path.join(framesDir, `${String(i + 1).padStart(6, "0")}.jpg`);
+    try {
+      await sharp(src)
+        .resize(1280, 720, {
+          fit: "contain",
+          background: { r: 0, g: 0, b: 0, alpha: 1 },
+        })
+        .jpeg({ quality: 90 })
+        .toFile(dst);
+    } catch (e) {
+      console.error("Sharp preprocess failed for", src, e);
+      throw e;
+    }
+  }
+
+  // 2) Build FFmpeg command with a single image2 input
+  const inputFramerate = Math.min(
+    30,
+    Math.max(0.5, 1 / Number(frameDuration || 0.1))
+  ); // clamp to [0.5, 30]
+  const pattern = path.join(framesDir, "%06d.jpg");
+
+  const ffmpegArgs = [
+    "-hide_banner",
+    "-loglevel",
+    "warning",
+    "-y",
+    "-framerate",
+    inputFramerate.toString(),
+    "-i",
+    pattern,
+    "-c:v",
+    "libx264",
+    "-preset",
+    "veryfast",
+    "-crf",
+    "28",
+    "-pix_fmt",
+    "yuv420p",
+    "-r",
+    "30",
+    "-movflags",
+    "+faststart",
+    "-threads",
+    "2",
+    outputPath,
+  ];
+
+  console.log("FFmpeg command:", "ffmpeg", ffmpegArgs.join(" "));
+
+  let ffmpegPath = "ffmpeg";
+  if (process.platform === "win32") {
+    ffmpegPath = "ffmpeg.exe";
+  }
+
+  const result = await new Promise((resolve, reject) => {
+    const ffmpeg = spawn(ffmpegPath, ffmpegArgs);
+    let stderr = "";
+    ffmpeg.stderr.on("data", (data) => {
+      stderr += data.toString();
+    });
+    ffmpeg.on("close", (code) => {
+      if (code === 0) return resolve(true);
+      console.error("FFmpeg failed with code:", code);
+      console.error("FFmpeg stderr:", stderr);
+      return reject(new Error(`FFmpeg failed with code ${code}`));
+    });
+    ffmpeg.on("error", (err) => reject(err));
+  });
+
+  // 3) Optional cleanup of frames to save disk
+  try {
+    await rm(framesDir, { recursive: true, force: true });
+  } catch {}
+
+  return result;
+}
+
+export async function GET() {
+  return NextResponse.json(
+    {
+      message:
+        "Fast video creation endpoint. Use POST with sessionId to create video from uploaded photos.",
+    },
+    { status: 200 }
+  );
+}
