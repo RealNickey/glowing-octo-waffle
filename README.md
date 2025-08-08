@@ -5,14 +5,13 @@
 
 
 ## Basic Details
-### Team Name: [Name]
+### Team Name: CTRL Z
 
 
 ### Team Members
-- Team Lead: [Name] - [College]
-- Member 2: [Name] - [College]
-- Member 3: [Name] - [College]
-
+- Team Lead: Aswin Jim - Viswajyothi College of Engineering And Technology
+- Member 2: Anosha Roy - Viswajyothi College of Engineering And Technology
+  
 ### Project Description
 [2-3 lines about what your project does]
 
