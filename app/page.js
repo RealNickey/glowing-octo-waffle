@@ -1,10 +1,25 @@
 "use client";
 import { useRef, useState } from "react";
-import { Upload, Search, MoreHorizontal, Download, Trash2, Eye, Plus, X } from "lucide-react";
+import {
+  Upload,
+  Search,
+  MoreHorizontal,
+  Download,
+  Trash2,
+  Eye,
+  Plus,
+  X,
+} from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 export default function PhotoDashboard() {
@@ -20,28 +35,34 @@ export default function PhotoDashboard() {
   const [videoResult, setVideoResult] = useState(null);
   const fileInputRef = useRef(null);
 
-  const filteredPhotos = photos.filter((p) => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredPhotos = photos.filter((p) =>
+    p.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const addFiles = async (fileList) => {
     const files = Array.from(fileList || []);
     if (!files.length) return;
 
     // create previews
-  const newItems = await Promise.all(
+    const newItems = await Promise.all(
       files.map(async (f, idx) => {
         const url = URL.createObjectURL(f);
         // best-effort to get dimensions
         const dims = await new Promise((res) => {
-      const imgEl = document.createElement("img");
-      imgEl.onload = () => res({ width: imgEl.naturalWidth || 400, height: imgEl.naturalHeight || 300 });
-      imgEl.onerror = () => res({ width: 400, height: 300 });
-      imgEl.src = url;
+          const imgEl = document.createElement("img");
+          imgEl.onload = () =>
+            res({
+              width: imgEl.naturalWidth || 400,
+              height: imgEl.naturalHeight || 300,
+            });
+          imgEl.onerror = () => res({ width: 400, height: 300 });
+          imgEl.src = url;
         });
         return {
           id: crypto.randomUUID(),
           file: f,
           name: f.name,
-      size: `${(f.size / (1024 * 1024)).toFixed(1)} MB`,
+          size: `${(f.size / (1024 * 1024)).toFixed(1)} MB`,
           previewUrl: url,
           width: dims.width,
           height: dims.height,
@@ -52,7 +73,10 @@ export default function PhotoDashboard() {
     setPhotos((prev) => [...newItems, ...prev]);
 
     // auto-upload and map server filenames back to these items
-    await uploadToServer(files, newItems.map((i) => i.id));
+    await uploadToServer(
+      files,
+      newItems.map((i) => i.id)
+    );
   };
 
   const uploadToServer = async (files, newIds) => {
@@ -61,7 +85,10 @@ export default function PhotoDashboard() {
       const formData = new FormData();
       files.forEach((f) => formData.append("photos", f));
       if (sessionId) formData.append("sessionId", sessionId);
-      const resp = await fetch("/api/upload", { method: "POST", body: formData });
+      const resp = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data?.error || "Upload failed");
       setSessionId((prev) => prev || data.sessionId || null);
@@ -90,7 +117,9 @@ export default function PhotoDashboard() {
 
   const deleteSelected = async () => {
     if (!sessionId) return;
-    const toDelete = photos.filter((p) => selectedPhotos.includes(p.id) && p.serverFileName).map((p) => p.serverFileName);
+    const toDelete = photos
+      .filter((p) => selectedPhotos.includes(p.id) && p.serverFileName)
+      .map((p) => p.serverFileName);
     if (toDelete.length === 0) return;
     try {
       const resp = await fetch("/api/delete-photos", {
@@ -107,8 +136,15 @@ export default function PhotoDashboard() {
 
       // Re-map serverFileName for remaining based on new server order (ascending)
       const newOrder = Array.isArray(data.files) ? data.files : [];
-      remaining.sort((a, b) => (a.serverFileName || "999999").localeCompare(b.serverFileName || "999999"));
-      const remapped = remaining.map((p, i) => ({ ...p, serverFileName: newOrder[i] || p.serverFileName }));
+      remaining.sort((a, b) =>
+        (a.serverFileName || "999999").localeCompare(
+          b.serverFileName || "999999"
+        )
+      );
+      const remapped = remaining.map((p, i) => ({
+        ...p,
+        serverFileName: newOrder[i] || p.serverFileName,
+      }));
       setPhotos(remapped);
     } catch (e) {
       console.error(e);
@@ -123,7 +159,10 @@ export default function PhotoDashboard() {
       const resp = await fetch("/api/create-video", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId, frameDuration: Number(frameDuration) || 0.1 }),
+        body: JSON.stringify({
+          sessionId,
+          frameDuration: Number(frameDuration) || 0.1,
+        }),
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data?.error || "Video creation failed");
@@ -136,7 +175,8 @@ export default function PhotoDashboard() {
   };
 
   const downloadVideo = () => {
-    if (videoResult?.videoId) window.open(`/api/download-video/${videoResult.videoId}`, "_blank");
+    if (videoResult?.videoId)
+      window.open(`/api/download-video/${videoResult.videoId}`, "_blank");
   };
 
   const handleDrag = (e) => {
@@ -156,7 +196,11 @@ export default function PhotoDashboard() {
   };
 
   const togglePhotoSelection = (photoId) => {
-    setSelectedPhotos((prev) => (prev.includes(photoId) ? prev.filter((id) => id !== photoId) : [...prev, photoId]));
+    setSelectedPhotos((prev) =>
+      prev.includes(photoId)
+        ? prev.filter((id) => id !== photoId)
+        : [...prev, photoId]
+    );
   };
 
   const clearSelection = () => {
@@ -189,7 +233,9 @@ export default function PhotoDashboard() {
           <div className="absolute top-3 left-3">
             <div
               className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${
-                isSelected ? "bg-blue-500 border-blue-500" : "bg-white/80 border-white/80 hover:bg-white hover:border-white"
+                isSelected
+                  ? "bg-blue-500 border-blue-500"
+                  : "bg-white/80 border-white/80 hover:bg-white hover:border-white"
               }`}
               onClick={(e) => {
                 e.stopPropagation();
@@ -197,7 +243,11 @@ export default function PhotoDashboard() {
               }}
             >
               {isSelected && (
-                <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <svg
+                  className="w-4 h-4 text-white"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
                   <path
                     fillRule="evenodd"
                     d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
@@ -211,7 +261,12 @@ export default function PhotoDashboard() {
         <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="bg-white/80 hover:bg-white text-gray-700 w-8 h-8" onClick={(e) => e.stopPropagation()}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="bg-white/80 hover:bg-white text-gray-700 w-8 h-8"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <MoreHorizontal className="w-4 h-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -245,11 +300,23 @@ export default function PhotoDashboard() {
               <h1 className="text-2xl font-normal text-gray-800">Photos</h1>
               {selectedPhotos.length > 0 && (
                 <div className="flex items-center gap-3">
-                  <span className="text-sm text-gray-600">{selectedPhotos.length} selected</span>
-                  <Button variant="ghost" size="sm" onClick={clearSelection} className="text-gray-600 hover:text-gray-800">
+                  <span className="text-sm text-gray-600">
+                    {selectedPhotos.length} selected
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearSelection}
+                    className="text-gray-600 hover:text-gray-800"
+                  >
                     <X className="w-4 h-4" />
                   </Button>
-                  <Button variant="destructive" size="sm" onClick={deleteSelected} className="bg-red-600 hover:bg-red-700 text-white">
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={deleteSelected}
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                  >
                     <Trash2 className="w-4 h-4 mr-1" /> Delete
                   </Button>
                 </div>
@@ -265,7 +332,15 @@ export default function PhotoDashboard() {
                   className="pl-10 w-80 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                 />
               </div>
-              <Button variant="outline" onClick={() => setIsSelectionMode(!isSelectionMode)} className={isSelectionMode ? "bg-blue-50 border-blue-300 text-blue-700" : ""}>
+              <Button
+                variant="outline"
+                onClick={() => setIsSelectionMode(!isSelectionMode)}
+                className={
+                  isSelectionMode
+                    ? "bg-blue-50 border-blue-300 text-blue-700"
+                    : ""
+                }
+              >
                 Select
               </Button>
             </div>
@@ -275,9 +350,15 @@ export default function PhotoDashboard() {
       <div className="flex">
         <div className="w-80 border-r border-gray-200 bg-gray-50/50">
           <div className="p-6">
-            <h2 className="text-lg font-medium text-gray-800 mb-4">Upload Photos</h2>
+            <h2 className="text-lg font-medium text-gray-800 mb-4">
+              Upload Photos
+            </h2>
             <div
-              className={`border-2 border-dashed rounded-xl p-8 text-center transition-all duration-300 ${dragActive ? "border-blue-400 bg-blue-50" : "border-gray-300 hover:border-gray-400 hover:bg-gray-50"}`}
+              className={`border-2 border-dashed rounded-xl p-8 text-center transition-all duration-300 ${
+                dragActive
+                  ? "border-blue-400 bg-blue-50"
+                  : "border-gray-300 hover:border-gray-400 hover:bg-gray-50"
+              }`}
               onDragEnter={handleDrag}
               onDragLeave={handleDrag}
               onDragOver={handleDrag}
@@ -286,13 +367,24 @@ export default function PhotoDashboard() {
             >
               <Upload className="mx-auto h-10 w-10 text-gray-400 mb-4" />
               <h3 className="font-medium text-gray-800 mb-2">Add photos</h3>
-              <p className="text-sm text-gray-600 mb-4">Drag photos here or click to browse</p>
+              <p className="text-sm text-gray-600 mb-4">
+                Drag photos here or click to browse
+              </p>
               <Button className="bg-blue-600 hover:bg-blue-700">
                 <Plus className="w-4 h-4 mr-2" />
                 Select from computer
               </Button>
-              <p className="text-xs text-gray-500 mt-3">JPG, PNG, GIF up to 25MB</p>
-              <input ref={fileInputRef} type="file" accept="image/*" multiple hidden onChange={(e) => e.target.files && addFiles(e.target.files)} />
+              <p className="text-xs text-gray-500 mt-3">
+                JPG, PNG, GIF up to 25MB
+              </p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                hidden
+                onChange={(e) => e.target.files && addFiles(e.target.files)}
+              />
             </div>
           </div>
           <div className="px-6 pb-6">
@@ -300,12 +392,23 @@ export default function PhotoDashboard() {
             <ScrollArea className="h-96">
               <div className="space-y-3">
                 {photos.slice(0, 8).map((photo) => (
-                  <div key={photo.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
+                  <div
+                    key={photo.id}
+                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                  >
                     <div className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
-                      <Image src={photo.previewUrl || "/placeholder.svg"} alt={photo.name} fill unoptimized className="object-cover" />
+                      <Image
+                        src={photo.previewUrl || "/placeholder.svg"}
+                        alt={photo.name}
+                        fill
+                        unoptimized
+                        className="object-cover"
+                      />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800 truncate">{photo.name}</p>
+                      <p className="text-sm font-medium text-gray-800 truncate">
+                        {photo.name}
+                      </p>
                       <p className="text-xs text-gray-500">{photo.size}</p>
                     </div>
                   </div>
@@ -321,7 +424,9 @@ export default function PhotoDashboard() {
               <div className="mb-6 p-4 border rounded-lg bg-gray-50">
                 <div className="flex items-end gap-4 flex-wrap">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Frame Duration (seconds per photo)</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Frame Duration (seconds per photo)
+                    </label>
                     <input
                       type="number"
                       min={0.03}
@@ -332,20 +437,32 @@ export default function PhotoDashboard() {
                       className="w-40 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
-                  <Button onClick={createVideo} disabled={creatingVideo} className="bg-green-600 hover:bg-green-700 text-white">
+                  <Button
+                    onClick={createVideo}
+                    disabled={creatingVideo}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
                     {creatingVideo ? "Creating..." : "Create Video"}
                   </Button>
                   {videoResult && (
-                    <Button onClick={downloadVideo} className="bg-purple-600 hover:bg-purple-700 text-white">
+                    <Button
+                      onClick={downloadVideo}
+                      className="bg-purple-600 hover:bg-purple-700 text-white"
+                    >
                       <Download className="w-4 h-4 mr-2" /> Download Video
                     </Button>
                   )}
                 </div>
-                <p className="mt-2 text-xs text-gray-600">Video will include all photos in this session (selection above does not affect the video).</p>
+                <p className="mt-2 text-xs text-gray-600">
+                  Video will include all photos in this session (selection above
+                  does not affect the video).
+                </p>
                 {videoResult && (
                   <div className="mt-3 text-sm text-gray-700">
                     <div>Images processed: {videoResult.imageCount}</div>
-                    <div>Total duration: {videoResult.duration?.toFixed(2)}s</div>
+                    <div>
+                      Total duration: {videoResult.duration?.toFixed(2)}s
+                    </div>
                     <div>Video ID: {videoResult.videoId}</div>
                   </div>
                 )}
@@ -355,7 +472,11 @@ export default function PhotoDashboard() {
             {filteredPhotos.length > 0 ? (
               <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-4 space-y-4">
                 {filteredPhotos.map((photo, index) => (
-                  <div key={photo.id} className="break-inside-avoid animate-in fade-in-0 slide-in-from-bottom-4 duration-500" style={{ animationDelay: `${index * 50}ms` }}>
+                  <div
+                    key={photo.id}
+                    className="break-inside-avoid animate-in fade-in-0 slide-in-from-bottom-4 duration-500"
+                    style={{ animationDelay: `${index * 50}ms` }}
+                  >
                     <PhotoCard photo={photo} />
                   </div>
                 ))}
@@ -365,12 +486,20 @@ export default function PhotoDashboard() {
                 <div className="w-24 h-24 mx-auto mb-6 bg-gray-100 rounded-full flex items-center justify-center">
                   <Search className="w-10 h-10 text-gray-400" />
                 </div>
-                <h3 className="text-xl font-medium text-gray-800 mb-2">No photos found</h3>
-                <p className="text-gray-600">{searchQuery ? "Try a different search term" : "Upload some photos to get started"}</p>
+                <h3 className="text-xl font-medium text-gray-800 mb-2">
+                  No photos found
+                </h3>
+                <p className="text-gray-600">
+                  {searchQuery
+                    ? "Try a different search term"
+                    : "Upload some photos to get started"}
+                </p>
               </div>
             )}
             {sessionId && (
-              <div className="mt-6 text-xs text-gray-500">Session: {sessionId}</div>
+              <div className="mt-6 text-xs text-gray-500">
+                Session: {sessionId}
+              </div>
             )}
             {uploading && (
               <div className="mt-4 text-sm text-gray-600">Uploading…</div>
