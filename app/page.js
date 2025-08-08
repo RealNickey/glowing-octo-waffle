@@ -1,237 +1,271 @@
 "use client";
+import { useRef, useState } from "react";
+import { Upload, Search, MoreHorizontal, Download, Trash2, Eye, Plus, X } from "lucide-react";
+import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
-import { useState } from "react";
-import { Upload, Video, Download } from "lucide-react";
-
-export default function Home() {
-  const [selectedFiles, setSelectedFiles] = useState([]);
+export default function PhotoDashboard() {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [dragActive, setDragActive] = useState(false);
+  const [selectedPhotos, setSelectedPhotos] = useState([]);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [photos, setPhotos] = useState([]); // { id, name, size, previewUrl, width, height }
   const [uploading, setUploading] = useState(false);
   const [sessionId, setSessionId] = useState(null);
-  const [creatingVideo, setCreatingVideo] = useState(false);
-  const [videoResult, setVideoResult] = useState(null);
-  const [frameDuration, setFrameDuration] = useState(0.1); // Very fast for speed
+  const fileInputRef = useRef(null);
 
-  const handleFileSelect = (event) => {
-    const files = Array.from(event.target.files);
-    setSelectedFiles(files);
+  const filteredPhotos = photos.filter((p) => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
+
+  const addFiles = async (fileList) => {
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
+
+    // create previews
+  const newItems = await Promise.all(
+      files.map(async (f, idx) => {
+        const url = URL.createObjectURL(f);
+        // best-effort to get dimensions
+        const dims = await new Promise((res) => {
+      const imgEl = document.createElement("img");
+      imgEl.onload = () => res({ width: imgEl.naturalWidth || 400, height: imgEl.naturalHeight || 300 });
+      imgEl.onerror = () => res({ width: 400, height: 300 });
+      imgEl.src = url;
+        });
+        return {
+          id: crypto.randomUUID(),
+          file: f,
+          name: f.name,
+      size: `${(f.size / (1024 * 1024)).toFixed(1)} MB`,
+          previewUrl: url,
+          width: dims.width,
+          height: dims.height,
+        };
+      })
+    );
+    setPhotos((prev) => [...newItems, ...prev]);
+
+    // auto-upload
+    await uploadToServer(files);
   };
 
-  const uploadFiles = async () => {
-    if (selectedFiles.length === 0) return;
-
-    setUploading(true);
-    const formData = new FormData();
-
-    selectedFiles.forEach((file) => {
-      formData.append("photos", file);
-    });
-
+  const uploadToServer = async (files) => {
     try {
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      const result = await response.json();
-
-      if (response.ok) {
-        setSessionId(result.sessionId);
-        alert(`Successfully uploaded ${result.count} photos!`);
-      } else {
-        alert("Upload failed: " + result.error);
-      }
-    } catch (error) {
-      alert("Upload failed: " + error.message);
+      setUploading(true);
+      const formData = new FormData();
+      files.forEach((f) => formData.append("photos", f));
+      const resp = await fetch("/api/upload", { method: "POST", body: formData });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data?.error || "Upload failed");
+      setSessionId(data.sessionId);
+    } catch (e) {
+      console.error(e);
+      // no-op UI toast here; keeping minimal
     } finally {
       setUploading(false);
     }
   };
 
-  const createVideo = async () => {
-    if (!sessionId) return;
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") setDragActive(true);
+    else if (e.type === "dragleave") setDragActive(false);
+  };
 
-    setCreatingVideo(true);
-
-    try {
-      const response = await fetch("/api/create-video", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          sessionId,
-          frameDuration: parseFloat(frameDuration),
-        }),
-      });
-
-      const result = await response.json();
-
-      if (response.ok) {
-        setVideoResult(result);
-        alert("Video created successfully!");
-      } else {
-        alert("Video creation failed: " + result.error);
-      }
-    } catch (error) {
-      alert("Video creation failed: " + error.message);
-    } finally {
-      setCreatingVideo(false);
+  const handleDrop = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      await addFiles(e.dataTransfer.files);
     }
   };
 
-  const downloadVideo = () => {
-    if (videoResult?.videoId) {
-      window.open(`/api/download-video/${videoResult.videoId}`, "_blank");
-    }
+  const togglePhotoSelection = (photoId) => {
+    setSelectedPhotos((prev) => (prev.includes(photoId) ? prev.filter((id) => id !== photoId) : [...prev, photoId]));
+  };
+
+  const clearSelection = () => {
+    setSelectedPhotos([]);
+    setIsSelectionMode(false);
+  };
+
+  const PhotoCard = ({ photo }) => {
+    const isSelected = selectedPhotos.includes(photo.id);
+    return (
+      <div
+        className={`group relative overflow-hidden rounded-lg cursor-pointer transition-all duration-200 hover:shadow-lg ${
+          isSelected ? "ring-4 ring-blue-500" : ""
+        }`}
+        style={{ aspectRatio: `${photo.width}/${photo.height}` }}
+        onClick={() => {
+          if (isSelectionMode) togglePhotoSelection(photo.id);
+        }}
+      >
+        <Image
+          src={photo.previewUrl || "/placeholder.svg"}
+          alt={photo.name}
+          fill
+          unoptimized
+          className="object-cover transition-transform duration-300 group-hover:scale-105"
+          sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+        />
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200" />
+        {(isSelectionMode || isSelected) && (
+          <div className="absolute top-3 left-3">
+            <div
+              className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${
+                isSelected ? "bg-blue-500 border-blue-500" : "bg-white/80 border-white/80 hover:bg-white hover:border-white"
+              }`}
+              onClick={(e) => {
+                e.stopPropagation();
+                togglePhotoSelection(photo.id);
+              }}
+            >
+              {isSelected && (
+                <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <path
+                    fillRule="evenodd"
+                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              )}
+            </div>
+          </div>
+        )}
+        <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="bg-white/80 hover:bg-white text-gray-700 w-8 h-8" onClick={(e) => e.stopPropagation()}>
+                <MoreHorizontal className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem>
+                <Eye className="w-4 h-4 mr-2" />
+                View
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <Download className="w-4 h-4 mr-2" />
+                Download
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-red-600">
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+    );
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-      <div className="container mx-auto px-4 py-8">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4 flex items-center justify-center gap-3">
-            <Video className="w-10 h-10 text-indigo-600" />
-            Fast Photo to Video Converter
-          </h1>
-          <p className="text-lg text-gray-600 dark:text-gray-300">
-            Upload photos and convert them to video frames for fast processing
-          </p>
-        </div>
-
-        <div className="max-w-4xl mx-auto">
-          {/* Upload Section */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
-            <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
-              <Upload className="w-6 h-6 text-indigo-600" />
-              Step 1: Upload Photos
-            </h2>
-
-            <div className="mb-4">
-              <input
-                type="file"
-                multiple
-                accept="image/*"
-                onChange={handleFileSelect}
-                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
-              />
-            </div>
-
-            {selectedFiles.length > 0 && (
-              <div className="mb-4">
-                <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
-                  Selected {selectedFiles.length} photo(s):
-                </p>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 max-h-32 overflow-y-auto">
-                  {selectedFiles.map((file, index) => (
-                    <div
-                      key={index}
-                      className="text-xs bg-gray-100 dark:bg-gray-700 p-2 rounded truncate"
-                    >
-                      {file.name}
-                    </div>
-                  ))}
+    <div className="min-h-screen bg-white">
+      <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
+        <div className="px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <h1 className="text-2xl font-normal text-gray-800">Photos</h1>
+              {selectedPhotos.length > 0 && (
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-gray-600">{selectedPhotos.length} selected</span>
+                  <Button variant="ghost" size="sm" onClick={clearSelection} className="text-gray-600 hover:text-gray-800">
+                    <X className="w-4 h-4" />
+                  </Button>
                 </div>
+              )}
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <Input
+                  placeholder="Search your photos"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 w-80 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                />
+              </div>
+              <Button variant="outline" onClick={() => setIsSelectionMode(!isSelectionMode)} className={isSelectionMode ? "bg-blue-50 border-blue-300 text-blue-700" : ""}>
+                Select
+              </Button>
+            </div>
+          </div>
+        </div>
+      </header>
+      <div className="flex">
+        <div className="w-80 border-r border-gray-200 bg-gray-50/50">
+          <div className="p-6">
+            <h2 className="text-lg font-medium text-gray-800 mb-4">Upload Photos</h2>
+            <div
+              className={`border-2 border-dashed rounded-xl p-8 text-center transition-all duration-300 ${dragActive ? "border-blue-400 bg-blue-50" : "border-gray-300 hover:border-gray-400 hover:bg-gray-50"}`}
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Upload className="mx-auto h-10 w-10 text-gray-400 mb-4" />
+              <h3 className="font-medium text-gray-800 mb-2">Add photos</h3>
+              <p className="text-sm text-gray-600 mb-4">Drag photos here or click to browse</p>
+              <Button className="bg-blue-600 hover:bg-blue-700">
+                <Plus className="w-4 h-4 mr-2" />
+                Select from computer
+              </Button>
+              <p className="text-xs text-gray-500 mt-3">JPG, PNG, GIF up to 25MB</p>
+              <input ref={fileInputRef} type="file" accept="image/*" multiple hidden onChange={(e) => e.target.files && addFiles(e.target.files)} />
+            </div>
+          </div>
+          <div className="px-6 pb-6">
+            <h3 className="font-medium text-gray-800 mb-4">Recent</h3>
+            <ScrollArea className="h-96">
+              <div className="space-y-3">
+                {photos.slice(0, 8).map((photo) => (
+                  <div key={photo.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
+                    <div className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
+                      <Image src={photo.previewUrl || "/placeholder.svg"} alt={photo.name} fill unoptimized className="object-cover" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-800 truncate">{photo.name}</p>
+                      <p className="text-xs text-gray-500">{photo.size}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+        </div>
+        <div className="flex-1">
+          <div className="p-6">
+            {filteredPhotos.length > 0 ? (
+              <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-4 space-y-4">
+                {filteredPhotos.map((photo, index) => (
+                  <div key={photo.id} className="break-inside-avoid animate-in fade-in-0 slide-in-from-bottom-4 duration-500" style={{ animationDelay: `${index * 50}ms` }}>
+                    <PhotoCard photo={photo} />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-20">
+                <div className="w-24 h-24 mx-auto mb-6 bg-gray-100 rounded-full flex items-center justify-center">
+                  <Search className="w-10 h-10 text-gray-400" />
+                </div>
+                <h3 className="text-xl font-medium text-gray-800 mb-2">No photos found</h3>
+                <p className="text-gray-600">{searchQuery ? "Try a different search term" : "Upload some photos to get started"}</p>
               </div>
             )}
-
-            <button
-              onClick={uploadFiles}
-              disabled={uploading || selectedFiles.length === 0}
-              className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white px-6 py-2 rounded-lg flex items-center gap-2"
-            >
-              {uploading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  Uploading...
-                </>
-              ) : (
-                <>
-                  <Upload className="w-4 h-4" />
-                  Upload Photos
-                </>
-              )}
-            </button>
+            {sessionId && (
+              <div className="mt-6 text-xs text-gray-500">Session: {sessionId}</div>
+            )}
+            {uploading && (
+              <div className="mt-4 text-sm text-gray-600">Uploading…</div>
+            )}
           </div>
-
-          {/* Video Creation Section */}
-          {sessionId && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
-              <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
-                <Video className="w-6 h-6 text-green-600" />
-                Step 2: Create Video
-              </h2>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Frame Duration (seconds per photo)
-                </label>
-                <input
-                  type="number"
-                  min="0.03"
-                  max="1"
-                  step="0.01"
-                  value={frameDuration}
-                  onChange={(e) => setFrameDuration(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Lower values = faster video playback (0.03s = ~33 FPS)
-                </p>
-              </div>
-
-              <button
-                onClick={createVideo}
-                disabled={creatingVideo}
-                className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-6 py-2 rounded-lg flex items-center gap-2"
-              >
-                {creatingVideo ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    Creating Video...
-                  </>
-                ) : (
-                  <>
-                    <Video className="w-4 h-4" />
-                    Create Video
-                  </>
-                )}
-              </button>
-            </div>
-          )}
-
-          {/* Download Section */}
-          {videoResult && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-              <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
-                <Download className="w-6 h-6 text-purple-600" />
-                Step 3: Download Video
-              </h2>
-
-              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 mb-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Video className="w-5 h-5 text-green-600" />
-                  <span className="font-medium text-green-800 dark:text-green-300">
-                    Video Created Successfully!
-                  </span>
-                </div>
-                <div className="text-sm text-green-700 dark:text-green-400">
-                  <p>Images processed: {videoResult.imageCount}</p>
-                  <p>
-                    Total duration: {videoResult.duration?.toFixed(2)} seconds
-                  </p>
-                  <p>Video ID: {videoResult.videoId}</p>
-                </div>
-              </div>
-
-              <button
-                onClick={downloadVideo}
-                className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg flex items-center gap-2"
-              >
-                <Download className="w-4 h-4" />
-                Download MP4 Video
-              </button>
-            </div>
-          )}
         </div>
       </div>
     </div>
