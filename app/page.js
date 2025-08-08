@@ -2,6 +2,7 @@
 import { useRef, useState } from "react";
 import { Upload, Search, MoreHorizontal, Download, Trash2, Eye, Plus, X } from "lucide-react";
 import Image from "next/image";
+import { SignedIn, SignedOut, SignInButton, SignUpButton } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -237,147 +238,174 @@ export default function PhotoDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
-      <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <h1 className="text-2xl font-normal text-gray-800">Photos</h1>
-              {selectedPhotos.length > 0 && (
-                <div className="flex items-center gap-3">
-                  <span className="text-sm text-gray-600">{selectedPhotos.length} selected</span>
-                  <Button variant="ghost" size="sm" onClick={clearSelection} className="text-gray-600 hover:text-gray-800">
-                    <X className="w-4 h-4" />
-                  </Button>
-                  <Button variant="destructive" size="sm" onClick={deleteSelected} className="bg-red-600 hover:bg-red-700 text-white">
-                    <Trash2 className="w-4 h-4 mr-1" /> Delete
-                  </Button>
-                </div>
-              )}
+    <>
+      <SignedOut>
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center">
+            <div className="w-20 h-20 mx-auto mb-6 bg-blue-100 rounded-full flex items-center justify-center">
+              <Upload className="w-10 h-10 text-blue-600" />
             </div>
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <Input
-                  placeholder="Search your photos"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 w-80 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                />
-              </div>
-              <Button variant="outline" onClick={() => setIsSelectionMode(!isSelectionMode)} className={isSelectionMode ? "bg-blue-50 border-blue-300 text-blue-700" : ""}>
-                Select
-              </Button>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Welcome to Photo Dashboard</h2>
+            <p className="text-gray-600 mb-8">Sign in to upload and manage your photos, create videos, and more.</p>
+            <div className="space-y-3">
+              <SignInButton mode="modal">
+                <button className="w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  Sign In
+                </button>
+              </SignInButton>
+              <SignUpButton mode="modal">
+                <button className="w-full px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  Create Account
+                </button>
+              </SignUpButton>
             </div>
           </div>
         </div>
-      </header>
-      <div className="flex">
-        <div className="w-80 border-r border-gray-200 bg-gray-50/50">
-          <div className="p-6">
-            <h2 className="text-lg font-medium text-gray-800 mb-4">Upload Photos</h2>
-            <div
-              className={`border-2 border-dashed rounded-xl p-8 text-center transition-all duration-300 ${dragActive ? "border-blue-400 bg-blue-50" : "border-gray-300 hover:border-gray-400 hover:bg-gray-50"}`}
-              onDragEnter={handleDrag}
-              onDragLeave={handleDrag}
-              onDragOver={handleDrag}
-              onDrop={handleDrop}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <Upload className="mx-auto h-10 w-10 text-gray-400 mb-4" />
-              <h3 className="font-medium text-gray-800 mb-2">Add photos</h3>
-              <p className="text-sm text-gray-600 mb-4">Drag photos here or click to browse</p>
-              <Button className="bg-blue-600 hover:bg-blue-700">
-                <Plus className="w-4 h-4 mr-2" />
-                Select from computer
-              </Button>
-              <p className="text-xs text-gray-500 mt-3">JPG, PNG, GIF up to 25MB</p>
-              <input ref={fileInputRef} type="file" accept="image/*" multiple hidden onChange={(e) => e.target.files && addFiles(e.target.files)} />
-            </div>
-          </div>
-          <div className="px-6 pb-6">
-            <h3 className="font-medium text-gray-800 mb-4">Recent</h3>
-            <ScrollArea className="h-96">
-              <div className="space-y-3">
-                {photos.slice(0, 8).map((photo) => (
-                  <div key={photo.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
-                    <div className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
-                      <Image src={photo.previewUrl || "/placeholder.svg"} alt={photo.name} fill unoptimized className="object-cover" />
+      </SignedOut>
+      <SignedIn>
+        <div className="min-h-screen bg-white">
+          <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
+            <div className="px-6 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <h1 className="text-2xl font-normal text-gray-800">Photos</h1>
+                  {selectedPhotos.length > 0 && (
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-gray-600">{selectedPhotos.length} selected</span>
+                      <Button variant="ghost" size="sm" onClick={clearSelection} className="text-gray-600 hover:text-gray-800">
+                        <X className="w-4 h-4" />
+                      </Button>
+                      <Button variant="destructive" size="sm" onClick={deleteSelected} className="bg-red-600 hover:bg-red-700 text-white">
+                        <Trash2 className="w-4 h-4 mr-1" /> Delete
+                      </Button>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800 truncate">{photo.name}</p>
-                      <p className="text-xs text-gray-500">{photo.size}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-          </div>
-        </div>
-        <div className="flex-1">
-          <div className="p-6">
-            {/* Convert to Video Panel */}
-            {sessionId && (
-              <div className="mb-6 p-4 border rounded-lg bg-gray-50">
-                <div className="flex items-end gap-4 flex-wrap">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Frame Duration (seconds per photo)</label>
-                    <input
-                      type="number"
-                      min={0.03}
-                      max={2}
-                      step={0.01}
-                      value={frameDuration}
-                      onChange={(e) => setFrameDuration(e.target.value)}
-                      className="w-40 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <Button onClick={createVideo} disabled={creatingVideo} className="bg-green-600 hover:bg-green-700 text-white">
-                    {creatingVideo ? "Creating..." : "Create Video"}
-                  </Button>
-                  {videoResult && (
-                    <Button onClick={downloadVideo} className="bg-purple-600 hover:bg-purple-700 text-white">
-                      <Download className="w-4 h-4 mr-2" /> Download Video
-                    </Button>
                   )}
                 </div>
-                <p className="mt-2 text-xs text-gray-600">Video will include all photos in this session (selection above does not affect the video).</p>
-                {videoResult && (
-                  <div className="mt-3 text-sm text-gray-700">
-                    <div>Images processed: {videoResult.imageCount}</div>
-                    <div>Total duration: {videoResult.duration?.toFixed(2)}s</div>
-                    <div>Video ID: {videoResult.videoId}</div>
+                <div className="flex items-center gap-4">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <Input
+                      placeholder="Search your photos"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10 w-80 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                    />
+                  </div>
+                  <Button variant="outline" onClick={() => setIsSelectionMode(!isSelectionMode)} className={isSelectionMode ? "bg-blue-50 border-blue-300 text-blue-700" : ""}>
+                    Select
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </header>
+          <div className="flex">
+            <div className="w-80 border-r border-gray-200 bg-gray-50/50">
+              <div className="p-6">
+                <h2 className="text-lg font-medium text-gray-800 mb-4">Upload Photos</h2>
+                <div
+                  className={`border-2 border-dashed rounded-xl p-8 text-center transition-all duration-300 ${dragActive ? "border-blue-400 bg-blue-50" : "border-gray-300 hover:border-gray-400 hover:bg-gray-50"}`}
+                  onDragEnter={handleDrag}
+                  onDragLeave={handleDrag}
+                  onDragOver={handleDrag}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="mx-auto h-10 w-10 text-gray-400 mb-4" />
+                  <h3 className="font-medium text-gray-800 mb-2">Add photos</h3>
+                  <p className="text-sm text-gray-600 mb-4">Drag photos here or click to browse</p>
+                  <Button className="bg-blue-600 hover:bg-blue-700">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Select from computer
+                  </Button>
+                  <p className="text-xs text-gray-500 mt-3">JPG, PNG, GIF up to 25MB</p>
+                  <input ref={fileInputRef} type="file" accept="image/*" multiple hidden onChange={(e) => e.target.files && addFiles(e.target.files)} />
+                </div>
+              </div>
+              <div className="px-6 pb-6">
+                <h3 className="font-medium text-gray-800 mb-4">Recent</h3>
+                <ScrollArea className="h-96">
+                  <div className="space-y-3">
+                    {photos.slice(0, 8).map((photo) => (
+                      <div key={photo.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
+                        <div className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
+                          <Image src={photo.previewUrl || "/placeholder.svg"} alt={photo.name} fill unoptimized className="object-cover" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-800 truncate">{photo.name}</p>
+                          <p className="text-xs text-gray-500">{photo.size}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </div>
+            </div>
+            <div className="flex-1">
+              <div className="p-6">
+                {/* Convert to Video Panel */}
+                {sessionId && (
+                  <div className="mb-6 p-4 border rounded-lg bg-gray-50">
+                    <div className="flex items-end gap-4 flex-wrap">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Frame Duration (seconds per photo)</label>
+                        <input
+                          type="number"
+                          min={0.03}
+                          max={2}
+                          step={0.01}
+                          value={frameDuration}
+                          onChange={(e) => setFrameDuration(e.target.value)}
+                          className="w-40 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <Button onClick={createVideo} disabled={creatingVideo} className="bg-green-600 hover:bg-green-700 text-white">
+                        {creatingVideo ? "Creating..." : "Create Video"}
+                      </Button>
+                      {videoResult && (
+                        <Button onClick={downloadVideo} className="bg-purple-600 hover:bg-purple-700 text-white">
+                          <Download className="w-4 h-4 mr-2" /> Download Video
+                        </Button>
+                      )}
+                    </div>
+                    <p className="mt-2 text-xs text-gray-600">Video will include all photos in this session (selection above does not affect the video).</p>
+                    {videoResult && (
+                      <div className="mt-3 text-sm text-gray-700">
+                        <div>Images processed: {videoResult.imageCount}</div>
+                        <div>Total duration: {videoResult.duration?.toFixed(2)}s</div>
+                        <div>Video ID: {videoResult.videoId}</div>
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
-            )}
 
-            {filteredPhotos.length > 0 ? (
-              <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-4 space-y-4">
-                {filteredPhotos.map((photo, index) => (
-                  <div key={photo.id} className="break-inside-avoid animate-in fade-in-0 slide-in-from-bottom-4 duration-500" style={{ animationDelay: `${index * 50}ms` }}>
-                    <PhotoCard photo={photo} />
+                {filteredPhotos.length > 0 ? (
+                  <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-4 space-y-4">
+                    {filteredPhotos.map((photo, index) => (
+                      <div key={photo.id} className="break-inside-avoid animate-in fade-in-0 slide-in-from-bottom-4 duration-500" style={{ animationDelay: `${index * 50}ms` }}>
+                        <PhotoCard photo={photo} />
+                      </div>
+                    ))}
                   </div>
-                ))}
+                ) : (
+                  <div className="text-center py-20">
+                    <div className="w-24 h-24 mx-auto mb-6 bg-gray-100 rounded-full flex items-center justify-center">
+                      <Search className="w-10 h-10 text-gray-400" />
+                    </div>
+                    <h3 className="text-xl font-medium text-gray-800 mb-2">No photos found</h3>
+                    <p className="text-gray-600">{searchQuery ? "Try a different search term" : "Upload some photos to get started"}</p>
+                  </div>
+                )}
+                {sessionId && (
+                  <div className="mt-6 text-xs text-gray-500">Session: {sessionId}</div>
+                )}
+                {uploading && (
+                  <div className="mt-4 text-sm text-gray-600">Uploading…</div>
+                )}
               </div>
-            ) : (
-              <div className="text-center py-20">
-                <div className="w-24 h-24 mx-auto mb-6 bg-gray-100 rounded-full flex items-center justify-center">
-                  <Search className="w-10 h-10 text-gray-400" />
-                </div>
-                <h3 className="text-xl font-medium text-gray-800 mb-2">No photos found</h3>
-                <p className="text-gray-600">{searchQuery ? "Try a different search term" : "Upload some photos to get started"}</p>
-              </div>
-            )}
-            {sessionId && (
-              <div className="mt-6 text-xs text-gray-500">Session: {sessionId}</div>
-            )}
-            {uploading && (
-              <div className="mt-4 text-sm text-gray-600">Uploading…</div>
-            )}
+            </div>
           </div>
         </div>
-      </div>
-    </div>
+      </SignedIn>
+    </>
   );
 }
