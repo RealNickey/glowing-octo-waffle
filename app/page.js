@@ -18,6 +18,8 @@ export default function PhotoDashboard() {
   const [frameDuration, setFrameDuration] = useState(0.1);
   const [creatingVideo, setCreatingVideo] = useState(false);
   const [videoResult, setVideoResult] = useState(null);
+  const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [processingYoutube, setProcessingYoutube] = useState(false);
   const fileInputRef = useRef(null);
 
   const filteredPhotos = photos.filter((p) => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -137,6 +139,57 @@ export default function PhotoDashboard() {
 
   const downloadVideo = () => {
     if (videoResult?.videoId) window.open(`/api/download-video/${videoResult.videoId}`, "_blank");
+  };
+
+  const processYouTubeVideo = async () => {
+    if (!youtubeUrl.trim()) return;
+    
+    setProcessingYoutube(true);
+    try {
+      const resp = await fetch("/api/process-youtube", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          youtubeUrl: youtubeUrl.trim(), 
+          sessionId: sessionId
+        }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data?.error || "YouTube processing failed");
+      
+      // Update session ID if it was created
+      setSessionId(data.sessionId);
+      
+      // Create photo items for the extracted frames
+      const frameItems = [];
+      for (let i = 1; i <= data.frameCount; i++) {
+        const frameId = crypto.randomUUID();
+        const frameFileName = `${String(i).padStart(6, "0")}.jpg`;
+        
+        frameItems.push({
+          id: frameId,
+          file: null, // No original file since it's from YouTube
+          name: `YouTube Frame ${i}`,
+          size: "~200 KB", // Estimated size
+          previewUrl: `/api/frame-preview/${data.sessionId}/${frameFileName}`,
+          width: 1280,
+          height: 720,
+          serverFileName: frameFileName,
+        });
+      }
+      
+      // Add frames to the beginning of the photos array
+      setPhotos((prev) => [...frameItems, ...prev]);
+      
+      // Clear the YouTube URL after successful processing
+      setYoutubeUrl("");
+      
+    } catch (e) {
+      console.error(e);
+      alert(`Failed to process YouTube video: ${e.message}`);
+    } finally {
+      setProcessingYoutube(false);
+    }
   };
 
   const handleDrag = (e) => {
@@ -293,6 +346,35 @@ export default function PhotoDashboard() {
               </Button>
               <p className="text-xs text-gray-500 mt-3">JPG, PNG, GIF up to 25MB</p>
               <input ref={fileInputRef} type="file" accept="image/*" multiple hidden onChange={(e) => e.target.files && addFiles(e.target.files)} />
+            </div>
+            
+            {/* YouTube Video Processing */}
+            <div className="mt-6 border-t pt-6">
+              <h3 className="text-lg font-medium text-gray-800 mb-4">YouTube Video</h3>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    YouTube URL
+                  </label>
+                  <input
+                    type="url"
+                    placeholder="https://youtube.com/watch?v=..."
+                    value={youtubeUrl}
+                    onChange={(e) => setYoutubeUrl(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <Button 
+                  onClick={processYouTubeVideo} 
+                  disabled={processingYoutube || !youtubeUrl.trim()}
+                  className="w-full bg-red-600 hover:bg-red-700 text-white"
+                >
+                  {processingYoutube ? "Processing..." : "Extract Frames"}
+                </Button>
+                <p className="text-xs text-gray-500">
+                  Extracts frames from YouTube video and adds them to your gallery
+                </p>
+              </div>
             </div>
           </div>
           <div className="px-6 pb-6">
