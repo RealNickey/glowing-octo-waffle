@@ -3,6 +3,7 @@ import { writeFile, mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
+import sharp from "sharp";
 
 export async function POST(request) {
   try {
@@ -39,26 +40,32 @@ export async function POST(request) {
         );
       }
 
-      // Generate filename with order number to maintain sequence
-      const fileExtension = path.extname(file.name);
-      const fileName = `${String(i + 1).padStart(
-        3,
-        "0"
-      )}_${Date.now()}${fileExtension}`;
+      // Generate sequential numeric filename for HD frames
+      const fileName = `${String(i + 1).padStart(6, "0")}.jpg`;
       const filePath = path.join(uploadDir, fileName);
 
-      // Convert file to buffer and save
+      // Convert file to buffer
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
 
-      await writeFile(filePath, buffer);
+      // Compress/resize to HD (1280x720) with letterboxing
+      const outputBuffer = await sharp(buffer)
+        .rotate() // auto-orient
+        .resize(1280, 720, {
+          fit: "contain",
+          background: { r: 0, g: 0, b: 0, alpha: 1 },
+        })
+        .jpeg({ quality: 85, mozjpeg: true })
+        .toBuffer();
+
+      await writeFile(filePath, outputBuffer);
 
       uploadedFiles.push({
         originalName: file.name,
-        fileName: fileName,
-        filePath: filePath,
-        size: file.size,
-        type: file.type,
+        fileName,
+        filePath,
+        size: outputBuffer.length,
+        type: "image/jpeg",
       });
     }
 

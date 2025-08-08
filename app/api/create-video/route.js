@@ -50,8 +50,8 @@ export async function POST(request) {
     const videoId = uuidv4();
     const outputPath = path.join(videoDir, `${videoId}.mp4`);
 
-    // Create video using preprocessed numbered frames to reduce CPU + errors
-    const success = await createVideoFromPreprocessedFrames({
+    // Create video using numbered frames (skip preprocessing if already HD JPG)
+    const success = await createVideoFromFramesOrPreprocess({
       inputDir: uploadDir,
       imageFiles,
       outputPath,
@@ -82,35 +82,41 @@ export async function POST(request) {
   }
 }
 
-async function createVideoFromPreprocessedFrames({
+async function createVideoFromFramesOrPreprocess({
   inputDir,
   imageFiles,
   outputPath,
   frameDuration,
 }) {
-  // 1) Preprocess to numbered frames (1280x720, letterbox, JPG)
-  const framesDir = path.join(inputDir, "__frames");
-  const { mkdir, rm, access } = await import("fs/promises");
+  const { mkdir, rm } = await import("fs/promises");
+  const looksNumberedHD = imageFiles.every((f) => /^(\d{6})\.jpe?g$/i.test(f));
 
-  try {
-    await mkdir(framesDir, { recursive: true });
-  } catch {}
+  const framesDir = looksNumberedHD
+    ? inputDir
+    : path.join(inputDir, "__frames");
 
-  // Sequential processing to avoid CPU spikes; consistent size & SAR
-  for (let i = 0; i < imageFiles.length; i++) {
-    const src = path.join(inputDir, imageFiles[i]);
-    const dst = path.join(framesDir, `${String(i + 1).padStart(6, "0")}.jpg`);
+  if (!looksNumberedHD) {
+    // Preprocess to numbered frames (1280x720 JPG)
     try {
-      await sharp(src)
-        .resize(1280, 720, {
-          fit: "contain",
-          background: { r: 0, g: 0, b: 0, alpha: 1 },
-        })
-        .jpeg({ quality: 90 })
-        .toFile(dst);
-    } catch (e) {
-      console.error("Sharp preprocess failed for", src, e);
-      throw e;
+      await mkdir(framesDir, { recursive: true });
+    } catch {}
+
+    for (let i = 0; i < imageFiles.length; i++) {
+      const src = path.join(inputDir, imageFiles[i]);
+      const dst = path.join(framesDir, `${String(i + 1).padStart(6, "0")}.jpg`);
+      try {
+        await sharp(src)
+          .rotate()
+          .resize(1280, 720, {
+            fit: "contain",
+            background: { r: 0, g: 0, b: 0, alpha: 1 },
+          })
+          .jpeg({ quality: 85, mozjpeg: true })
+          .toFile(dst);
+      } catch (e) {
+        console.error("Sharp preprocess failed for", src, e);
+        throw e;
+      }
     }
   }
 
@@ -169,10 +175,12 @@ async function createVideoFromPreprocessedFrames({
     ffmpeg.on("error", (err) => reject(err));
   });
 
-  // 3) Optional cleanup of frames to save disk
-  try {
-    await rm(framesDir, { recursive: true, force: true });
-  } catch {}
+  // 3) Optional cleanup of frames to save disk (only if we created them)
+  if (!looksNumberedHD) {
+    try {
+      await rm(framesDir, { recursive: true, force: true });
+    } catch {}
+  }
 
   return result;
 }
