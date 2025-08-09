@@ -45,40 +45,27 @@ Dashboard<img width="1918" height="912" alt="image" src="https://github.com/user
 The interface 
 
 
-![Screenshot2](Add screenshot 2 here with proper name)
+<img width="2528" height="1229" alt="image" src="https://github.com/user-attachments/assets/92f63f9c-42a0-4b99-88ef-39e1e148abe7" />
+
 *Add caption explaining what this shows*
 
-![Screenshot3](Add screenshot 3 here with proper name)
+<img width="2538" height="1233" alt="image" src="https://github.com/user-attachments/assets/2a9b597c-a146-42b1-9d55-f4ee292b684c" />
+
 *Add caption explaining what this shows*
 
 # Diagrams
 <img width="6196" height="3692" alt="image" src="https://github.com/user-attachments/assets/c46c9862-837d-49e5-8ca5-f78f06a93bdf" />
 
 
-# Schematic & Circuit
-![Circuit](Add your circuit diagram here)
-*Add caption explaining connections*
-
-![Schematic](Add your schematic diagram here)
-*Add caption explaining the schematic*
-
-# Build Photos
-![Components](Add photo of your components here)
-*List out all components shown*
-
-![Build](Add photos of build process here)
-*Explain the build steps*
-
-![Final](Add photo of final product here)
-*Explain the final build*
-
 ### Project Demo
 # Video
-[Add your demo video link here]
+
+
+https://github.com/user-attachments/assets/9b2cfc2d-4bf5-435d-98b5-c6762b79cb59
+
+
 *Explain what the video demonstrates*
 
-# Additional Demos
-[Add any extra demo materials/links]
 
 ## Team Contributions
 - Aswin Jim: Backend Development
