@@ -54,7 +54,10 @@ user flow
 # Video
 
 
-https://github.com/user-attachments/assets/9b2cfc2d-4bf5-435d-98b5-c6762b79cb59
+https://github.com/user-attachments/assets/b28fd423-a45a-4ac6-9fb2-c84787b51c5a
+
+
+
 demonstartes user flow of uploading photos and converting the result photo back to images
 
 
