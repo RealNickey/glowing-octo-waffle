@@ -36,6 +36,13 @@ export default function PhotoDashboard() {
   const [uploadToYouTube, setUploadToYouTube] = useState(false);
   const [ytTitle, setYtTitle] = useState("");
   const [ytUploading, setYtUploading] = useState(false);
+  // Extract frames (video -> photos)
+  const [extracting, setExtracting] = useState(false);
+  const [extractResult, setExtractResult] = useState(null);
+  const [previewFrames, setPreviewFrames] = useState([]);
+  const [extractFps, setExtractFps] = useState(1);
+  const [ytUrl, setYtUrl] = useState("");
+  const [ytExtracting, setYtExtracting] = useState(false);
   const fileInputRef = useRef(null);
 
   const filteredPhotos = photos.filter((p) =>
@@ -80,6 +87,55 @@ export default function PhotoDashboard() {
       files,
       newItems.map((i) => i.id)
     );
+  };
+
+  // Download from YouTube and extract frames; then pull images into gallery state
+  const handleExtractFromYouTube = async () => {
+    if (!ytUrl.trim()) return;
+    setYtExtracting(true);
+    try {
+      const res = await fetch("/api/extract-from-youtube", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: ytUrl.trim(),
+          fps: Number(extractFps) || 1,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "YouTube extraction failed");
+      // Load images into gallery (as remote previews) by listing the session
+      const session = data.sessionId;
+      setSessionId((prev) => prev || session);
+      const listResp = await fetch(`/api/list-uploads/${session}`);
+      const listData = await listResp.json();
+      if (listResp.ok && Array.isArray(listData.files)) {
+        const now = Date.now();
+        const newItems = listData.files.map((fname, idx) => ({
+          id: crypto.randomUUID(),
+          file: null,
+          name: fname,
+          size: "",
+          previewUrl: `/api/get-frame/${session}/${encodeURIComponent(fname)}`,
+          width: 400,
+          height: 300,
+          serverFileName: fname,
+        }));
+        // Prepend to gallery for visibility
+        setPhotos((prev) => [...newItems, ...prev]);
+        // Show a few previews
+        setPreviewFrames(newItems.slice(0, 5).map((i) => i.previewUrl));
+      } else {
+        setPreviewFrames(
+          Array.isArray(data.previewUrls) ? data.previewUrls : []
+        );
+      }
+    } catch (e) {
+      console.error(e);
+      setExtractResult({ error: e.message });
+    } finally {
+      setYtExtracting(false);
+    }
   };
 
   const uploadToServer = async (files, newIds) => {
@@ -264,6 +320,37 @@ export default function PhotoDashboard() {
     setIsSelectionMode(false);
   };
 
+  // Upload a video and extract frames via API
+  const handleExtractFromVideo = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setExtracting(true);
+    setExtractResult(null);
+    setPreviewFrames([]);
+    try {
+      const form = new FormData();
+      form.append("video", file);
+      if (extractFps && Number(extractFps) > 0) {
+        form.append("fps", String(extractFps));
+      }
+      const res = await fetch("/api/extract-frames", {
+        method: "POST",
+        body: form,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Extraction failed");
+      setExtractResult(data);
+      if (Array.isArray(data.previewUrls)) setPreviewFrames(data.previewUrls);
+    } catch (err) {
+      console.error(err);
+      setExtractResult({ error: err.message });
+    } finally {
+      setExtracting(false);
+      // reset the input value so selecting the same file triggers change again
+      e.target.value = "";
+    }
+  };
+
   const PhotoCard = ({ photo }) => {
     const isSelected = selectedPhotos.includes(photo.id);
     return (
@@ -442,6 +529,90 @@ export default function PhotoDashboard() {
                 onChange={(e) => e.target.files && addFiles(e.target.files)}
               />
             </div>
+
+            {/* Extract Photos from Video */}
+            <div className="mt-8">
+              <h2 className="text-lg font-medium text-gray-800 mb-2">
+                Extract Photos from Video
+              </h2>
+              <p className="text-sm text-gray-600 mb-3">
+                Pick a video; frames will be saved as a new photo session.
+              </p>
+              <div className="flex items-center gap-3 mb-2">
+                <label className="text-sm text-gray-700">FPS</label>
+                <input
+                  type="number"
+                  min={0.2}
+                  step={0.2}
+                  value={extractFps}
+                  onChange={(e) => setExtractFps(e.target.value)}
+                  className="w-24 px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <Input
+                type="file"
+                accept="video/*"
+                onChange={handleExtractFromVideo}
+                disabled={extracting}
+              />
+              {extracting && (
+                <p className="text-sm text-gray-500 mt-2">Extracting frames…</p>
+              )}
+              {extractResult && (
+                <div className="text-xs text-gray-600 mt-2">
+                  {extractResult.error ? (
+                    <p className="text-red-600">{extractResult.error}</p>
+                  ) : (
+                    <div>
+                      <p>Session: {extractResult.sessionId}</p>
+                      <p>Frames: {extractResult.count}</p>
+                      {previewFrames.length > 0 && (
+                        <div className="flex gap-2 mt-2">
+                          {previewFrames.map((u) => (
+                            <img
+                              key={u}
+                              src={u}
+                              alt="frame"
+                              className="w-12 h-12 object-cover rounded"
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Extract from YouTube */}
+            <div className="mt-8">
+              <h2 className="text-lg font-medium text-gray-800 mb-2">
+                Extract from YouTube URL
+              </h2>
+              <p className="text-sm text-gray-600 mb-3">
+                Provide a YouTube video URL to download and extract frames.
+              </p>
+              <div className="flex items-center gap-2 mb-2">
+                <input
+                  type="url"
+                  placeholder="https://www.youtube.com/watch?v=..."
+                  value={ytUrl}
+                  onChange={(e) => setYtUrl(e.target.value)}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <Button
+                  onClick={handleExtractFromYouTube}
+                  disabled={ytExtracting}
+                >
+                  {ytExtracting ? "Processing…" : "Download & Extract"}
+                </Button>
+              </div>
+              {ytExtracting && (
+                <p className="text-sm text-gray-500 mt-1">
+                  Downloading video and extracting frames…
+                </p>
+              )}
+            </div>
           </div>
           <div className="px-6 pb-6">
             <h3 className="font-medium text-gray-800 mb-4">Recent</h3>
@@ -505,9 +676,11 @@ export default function PhotoDashboard() {
                             const photosCount = photos.length;
                             const approxDuration =
                               (Number(frameDuration) || 0.1) * photosCount;
-                              // Pre-fill a sensible default title
+                            // Pre-fill a sensible default title
                             setYtTitle(
-                              `Session ${sessionId} Slideshow (${photosCount} photos, ${approxDuration.toFixed(1)}s)`
+                              `Session ${sessionId} Slideshow (${photosCount} photos, ${approxDuration.toFixed(
+                                1
+                              )}s)`
                             );
                           }
                         }}
@@ -562,7 +735,8 @@ export default function PhotoDashboard() {
                     <div>Video ID: {videoResult.videoId}</div>
                     {videoResult.youtube && (
                       <div className="mt-2">
-                        {videoResult.youtube.ok && videoResult.youtube.videoId ? (
+                        {videoResult.youtube.ok &&
+                        videoResult.youtube.videoId ? (
                           <a
                             href={`https://youtu.be/${videoResult.youtube.videoId}`}
                             target="_blank"
@@ -578,7 +752,8 @@ export default function PhotoDashboard() {
                               variant="outline"
                               onClick={() =>
                                 window.open(
-                                  videoResult.youtube.authUrl || "/api/youtube/auth",
+                                  videoResult.youtube.authUrl ||
+                                    "/api/youtube/auth",
                                   "_blank"
                                 )
                               }

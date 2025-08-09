@@ -1,18 +1,27 @@
 "use client";
 import { useState } from "react";
-import { Upload, Search, MoreHorizontal, Download, Trash2, Eye, Plus, X } from 'lucide-react'
-import Image from "next/image"
+import {
+  Upload,
+  Search,
+  MoreHorizontal,
+  Download,
+  Trash2,
+  Eye,
+  Plus,
+  X,
+} from "lucide-react";
+import Image from "next/image";
 
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { ScrollArea } from "@/components/ui/scroll-area"
+} from "@/components/ui/dropdown-menu";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 // Mock data for photos with different aspect ratios
 const photoFiles = [
@@ -116,111 +125,146 @@ const photoFiles = [
     width: 300,
     height: 450,
   },
-]
+];
 
 export default function PhotoDashboard() {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [dragActive, setDragActive] = useState(false)
-  const [selectedPhotos, setSelectedPhotos] = useState([])
-  const [isSelectionMode, setIsSelectionMode] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("");
+  const [dragActive, setDragActive] = useState(false);
+  const [selectedPhotos, setSelectedPhotos] = useState([]);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [extracting, setExtracting] = useState(false);
+  const [extractResult, setExtractResult] = useState(null);
+  const [previewFrames, setPreviewFrames] = useState([]);
 
-  const filteredPhotos = photoFiles.filter(photo =>
-    photo.name.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filteredPhotos = photoFiles.filter((photo) =>
+    photo.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const handleDrag = (e) => {
-    e.preventDefault()
-    e.stopPropagation()
+    e.preventDefault();
+    e.stopPropagation();
     if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true)
+      setDragActive(true);
     } else if (e.type === "dragleave") {
-      setDragActive(false)
+      setDragActive(false);
     }
-  }
+  };
 
   const handleDrop = (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDragActive(false)
-    
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      console.log("Files dropped:", e.dataTransfer.files)
+      console.log("Files dropped:", e.dataTransfer.files);
     }
-  }
+  };
 
   const togglePhotoSelection = (photoId) => {
     if (selectedPhotos.includes(photoId)) {
-      setSelectedPhotos(selectedPhotos.filter(id => id !== photoId))
+      setSelectedPhotos(selectedPhotos.filter((id) => id !== photoId));
     } else {
-      setSelectedPhotos([...selectedPhotos, photoId])
+      setSelectedPhotos([...selectedPhotos, photoId]);
     }
-  }
+  };
 
   const clearSelection = () => {
-    setSelectedPhotos([])
-    setIsSelectionMode(false)
-  }
+    setSelectedPhotos([]);
+    setIsSelectionMode(false);
+  };
 
-  const PhotoCard = ({
-    photo
-  }) => {
-    const isSelected = selectedPhotos.includes(photo.id)
-    
+  const handleExtractFromVideo = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setExtracting(true);
+    setExtractResult(null);
+    setPreviewFrames([]);
+    try {
+      const form = new FormData();
+      form.append("video", file);
+      form.append("fps", "1");
+      const res = await fetch("/api/extract-frames", {
+        method: "POST",
+        body: form,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Extraction failed");
+      setExtractResult(data);
+      if (Array.isArray(data.previewUrls)) setPreviewFrames(data.previewUrls);
+    } catch (err) {
+      console.error(err);
+      setExtractResult({ error: err.message });
+    } finally {
+      setExtracting(false);
+    }
+  };
+
+  const PhotoCard = ({ photo }) => {
+    const isSelected = selectedPhotos.includes(photo.id);
+
     return (
       <div
         className={`group relative overflow-hidden rounded-lg cursor-pointer transition-all duration-200 hover:shadow-lg ${
-          isSelected ? 'ring-4 ring-blue-500' : ''
+          isSelected ? "ring-4 ring-blue-500" : ""
         }`}
         style={{
           aspectRatio: `${photo.width}/${photo.height}`,
         }}
         onClick={() => {
           if (isSelectionMode) {
-            togglePhotoSelection(photo.id)
+            togglePhotoSelection(photo.id);
           }
-        }}>
+        }}
+      >
         <Image
           src={photo.thumbnail || "/placeholder.svg"}
           alt={photo.name}
           fill
           className="object-cover transition-transform duration-300 group-hover:scale-105"
-          sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw" />
+          sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+        />
         {/* Hover overlay */}
-        <div
-          className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200" />
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200" />
         {/* Selection checkbox */}
         {(isSelectionMode || isSelected) && (
           <div className="absolute top-3 left-3">
             <div
               className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${
-                isSelected 
-                  ? 'bg-blue-500 border-blue-500' 
-                  : 'bg-white/80 border-white/80 hover:bg-white hover:border-white'
+                isSelected
+                  ? "bg-blue-500 border-blue-500"
+                  : "bg-white/80 border-white/80 hover:bg-white hover:border-white"
               }`}
               onClick={(e) => {
-                e.stopPropagation()
-                togglePhotoSelection(photo.id)
-              }}>
+                e.stopPropagation();
+                togglePhotoSelection(photo.id);
+              }}
+            >
               {isSelected && (
-                <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <svg
+                  className="w-4 h-4 text-white"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
                   <path
                     fillRule="evenodd"
                     d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                    clipRule="evenodd" />
+                    clipRule="evenodd"
+                  />
                 </svg>
               )}
             </div>
           </div>
         )}
         {/* Action menu */}
-        <div
-          className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+        <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
                 className="bg-white/80 hover:bg-white text-gray-700 w-8 h-8"
-                onClick={(e) => e.stopPropagation()}>
+                onClick={(e) => e.stopPropagation()}
+              >
                 <MoreHorizontal className="w-4 h-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -243,7 +287,7 @@ export default function PhotoDashboard() {
         </div>
       </div>
     );
-  }
+  };
 
   return (
     <div className="min-h-screen bg-white">
@@ -262,28 +306,34 @@ export default function PhotoDashboard() {
                     variant="ghost"
                     size="sm"
                     onClick={clearSelection}
-                    className="text-gray-600 hover:text-gray-800">
+                    className="text-gray-600 hover:text-gray-800"
+                  >
                     <X className="w-4 h-4" />
                   </Button>
                 </div>
               )}
             </div>
-            
+
             <div className="flex items-center gap-4">
               <div className="relative">
-                <Search
-                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <Input
                   placeholder="Search your photos"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 w-80 border-gray-300 focus:border-blue-500 focus:ring-blue-500" />
+                  className="pl-10 w-80 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                />
               </div>
-              
+
               <Button
                 variant="outline"
                 onClick={() => setIsSelectionMode(!isSelectionMode)}
-                className={isSelectionMode ? 'bg-blue-50 border-blue-300 text-blue-700' : ''}>
+                className={
+                  isSelectionMode
+                    ? "bg-blue-50 border-blue-300 text-blue-700"
+                    : ""
+                }
+              >
                 Select
               </Button>
             </div>
@@ -294,19 +344,22 @@ export default function PhotoDashboard() {
         {/* Sidebar */}
         <div className="w-80 border-r border-gray-200 bg-gray-50/50">
           <div className="p-6">
-            <h2 className="text-lg font-medium text-gray-800 mb-4">Upload Photos</h2>
-            
+            <h2 className="text-lg font-medium text-gray-800 mb-4">
+              Upload Photos
+            </h2>
+
             {/* Upload Area */}
             <div
               className={`border-2 border-dashed rounded-xl p-8 text-center transition-all duration-300 ${
-                dragActive 
-                  ? "border-blue-400 bg-blue-50" 
+                dragActive
+                  ? "border-blue-400 bg-blue-50"
                   : "border-gray-300 hover:border-gray-400 hover:bg-gray-50"
               }`}
               onDragEnter={handleDrag}
               onDragLeave={handleDrag}
               onDragOver={handleDrag}
-              onDrop={handleDrop}>
+              onDrop={handleDrop}
+            >
               <Upload className="mx-auto h-10 w-10 text-gray-400 mb-4" />
               <h3 className="font-medium text-gray-800 mb-2">Add photos</h3>
               <p className="text-sm text-gray-600 mb-4">
@@ -320,6 +373,48 @@ export default function PhotoDashboard() {
                 JPG, PNG, GIF up to 25MB
               </p>
             </div>
+
+            <div className="mt-8">
+              <h2 className="text-lg font-medium text-gray-800 mb-2">
+                Extract Photos from Video
+              </h2>
+              <p className="text-sm text-gray-600 mb-3">
+                Upload a video to extract frames as photos.
+              </p>
+              <Input
+                type="file"
+                accept="video/*"
+                onChange={handleExtractFromVideo}
+                disabled={extracting}
+              />
+              {extracting && (
+                <p className="text-sm text-gray-500 mt-2">Extracting frames…</p>
+              )}
+              {extractResult && (
+                <div className="text-xs text-gray-600 mt-2">
+                  {extractResult.error ? (
+                    <p className="text-red-600">{extractResult.error}</p>
+                  ) : (
+                    <div>
+                      <p>Session: {extractResult.sessionId}</p>
+                      <p>Frames: {extractResult.count}</p>
+                      {previewFrames.length > 0 && (
+                        <div className="flex gap-2 mt-2">
+                          {previewFrames.map((u) => (
+                            <img
+                              key={u}
+                              src={u}
+                              alt="frame"
+                              className="w-12 h-12 object-cover rounded"
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Recent Photos */}
@@ -330,17 +425,23 @@ export default function PhotoDashboard() {
                 {photoFiles.slice(0, 8).map((photo) => (
                   <div
                     key={photo.id}
-                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
+                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                  >
                     <div className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
                       <Image
                         src={photo.thumbnail || "/placeholder.svg"}
                         alt={photo.name}
                         fill
-                        className="object-cover" />
+                        className="object-cover"
+                      />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800 truncate">{photo.name}</p>
-                      <p className="text-xs text-gray-500">{photo.uploadDate}</p>
+                      <p className="text-sm font-medium text-gray-800 truncate">
+                        {photo.name}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {photo.uploadDate}
+                      </p>
                     </div>
                   </div>
                 ))}
@@ -353,26 +454,29 @@ export default function PhotoDashboard() {
         <div className="flex-1">
           <div className="p-6">
             {filteredPhotos.length > 0 ? (
-              <div
-                className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-4 space-y-4">
+              <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-4 space-y-4">
                 {filteredPhotos.map((photo, index) => (
                   <div
                     key={photo.id}
                     className="break-inside-avoid animate-in fade-in-0 slide-in-from-bottom-4 duration-500"
-                    style={{ animationDelay: `${index * 50}ms` }}>
+                    style={{ animationDelay: `${index * 50}ms` }}
+                  >
                     <PhotoCard photo={photo} />
                   </div>
                 ))}
               </div>
             ) : (
               <div className="text-center py-20">
-                <div
-                  className="w-24 h-24 mx-auto mb-6 bg-gray-100 rounded-full flex items-center justify-center">
+                <div className="w-24 h-24 mx-auto mb-6 bg-gray-100 rounded-full flex items-center justify-center">
                   <Search className="w-10 h-10 text-gray-400" />
                 </div>
-                <h3 className="text-xl font-medium text-gray-800 mb-2">No photos found</h3>
+                <h3 className="text-xl font-medium text-gray-800 mb-2">
+                  No photos found
+                </h3>
                 <p className="text-gray-600">
-                  {searchQuery ? "Try a different search term" : "Upload some photos to get started"}
+                  {searchQuery
+                    ? "Try a different search term"
+                    : "Upload some photos to get started"}
                 </p>
               </div>
             )}
