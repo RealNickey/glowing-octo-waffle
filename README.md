@@ -59,7 +59,7 @@ demonstartes user flow of uploading photos and converting the result photo back 
 
 
 ## Team Contributions
-- Aswin Jim: Backend Development
+- Aswin Jim Thuruthippilly: Backend Development
 - Anosha Roy: Frontend Development
 
 ---
