@@ -26,7 +26,7 @@ We convert images into a single  video file, upload the video to YouTube for clo
 For Software:
 - JS
 - Next.JS
-- FFNPG, shadcn, tailwind,yt-dlp
+- ffmpeg, shadcn, tailwind,yt-dlp
 
 ### Implementation
 For Software:
@@ -37,7 +37,7 @@ For Software:
 ### Project Documentation
 For Software:
 
-# Screenshots (Add at least 3)
+# Screenshots 
 Dashboard after uploading photos <img width="1918" height="912" alt="image" src="https://github.com/user-attachments/assets/63437ed7-96f1-4814-9b9e-ec31be08e1e5" />
 
 Extracting From YouTube <img width="2528" height="1229" alt="image" src="https://github.com/user-attachments/assets/92f63f9c-42a0-4b99-88ef-39e1e148abe7" />
