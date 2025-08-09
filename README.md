@@ -42,7 +42,7 @@ For Software:
 # Screenshots (Add at least 3)
 Dashboard<img width="1918" height="912" alt="image" src="https://github.com/user-attachments/assets/63437ed7-96f1-4814-9b9e-ec31be08e1e5" />
 
-The interface the user sees,
+The interface 
 
 
 ![Screenshot2](Add screenshot 2 here with proper name)
