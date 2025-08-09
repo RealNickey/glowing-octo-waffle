@@ -13,25 +13,25 @@
 - Member 2: Anosha Roy - Viswajyothi College of Engineering And Technology
   
 ### Project Description
-The project takes photos from storage, uploads it as a video to youtube, and then extracts the video back to storage in a video format. This effectively takes up less space in the storage.
+The project takes photos from the user, uploads it as a unlisted video to youtube, and then extracts the video back to photo from the youtube link. This effectively helps us save storage.
 
 ### The Problem (that doesn't exist)
 Large collections of images quickly consume storage space and storing each image individually is inefficient and costly.
 
 ### The Solution (that nobody asked for)
-We convert images into a single compressed video file, upload the video to YouTube for cloud storage and retrieve and store the video back when needed, saving space.
+We convert images into a single  video file, upload the video to YouTube for cloud storage and retrieve and view the images when needed, saving space.
 
 ## Technical Details
 ### Technologies/Components Used
 For Software:
 - JS
 - Next.JS
-- FFNPG, shadcn, tailwind
+- FFNPG, shadcn, tailwind,yt-dlp
 
 ### Implementation
 For Software:
 # Installation
-[commands]
+[commands] 
 
 # Run
 [commands]
