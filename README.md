@@ -1,7 +1,7 @@
 <img width="3188" height="1202" alt="frame (3)" src="https://github.com/user-attachments/assets/517ad8e9-ad22-457d-9538-a9e62d137cd7" />
 
 
-# [Project Name] 🎯
+# Spacetube 🎯
 
 
 ## Basic Details
@@ -13,26 +13,20 @@
 - Member 2: Anosha Roy - Viswajyothi College of Engineering And Technology
   
 ### Project Description
-[2-3 lines about what your project does]
+The project takes photos from storage, uploads it as a video to youtube, and then extracts the video back to storage in a video format. This effectively takes up less space in the storage.
 
 ### The Problem (that doesn't exist)
-[What ridiculous problem are you solving?]
+Large collections of images quickly consume storage space and storing each image individually is inefficient and costly.
 
 ### The Solution (that nobody asked for)
-[How are you solving it? Keep it fun!]
+We convert images into a single compressed video file, upload the video to YouTube for cloud storage and retrieve and store the video back when needed, saving space.
 
 ## Technical Details
 ### Technologies/Components Used
 For Software:
-- [Languages used]
-- [Frameworks used]
-- [Libraries used]
-- [Tools used]
-
-For Hardware:
-- [List main components]
-- [List specifications]
-- [List tools required]
+- JS
+- Next.JS
+- FFNPG, shadcn, tailwind
 
 ### Implementation
 For Software:
@@ -46,8 +40,10 @@ For Software:
 For Software:
 
 # Screenshots (Add at least 3)
-![Screenshot1](Add screenshot 1 here with proper name)
-*Add caption explaining what this shows*
+Dashboard<img width="1918" height="912" alt="image" src="https://github.com/user-attachments/assets/63437ed7-96f1-4814-9b9e-ec31be08e1e5" />
+
+The interface the user sees,
+
 
 ![Screenshot2](Add screenshot 2 here with proper name)
 *Add caption explaining what this shows*
@@ -56,10 +52,8 @@ For Software:
 *Add caption explaining what this shows*
 
 # Diagrams
-![Workflow](Add your workflow/architecture diagram here)
-*Add caption explaining your workflow*
+<img width="6196" height="3692" alt="image" src="https://github.com/user-attachments/assets/c46c9862-837d-49e5-8ca5-f78f06a93bdf" />
 
-For Hardware:
 
 # Schematic & Circuit
 ![Circuit](Add your circuit diagram here)
@@ -87,9 +81,8 @@ For Hardware:
 [Add any extra demo materials/links]
 
 ## Team Contributions
-- [Name 1]: [Specific contributions]
-- [Name 2]: [Specific contributions]
-- [Name 3]: [Specific contributions]
+- Aswin Jim: Backend Development
+- Anosha Roy: Frontend Development
 
 ---
 Made with ❤️ at TinkerHub Useless Projects 
