@@ -16,7 +16,7 @@
 The project takes photos from the user, uploads it as a unlisted video to youtube, and then extracts the video back to photo from the youtube link. This effectively helps us save storage.
 
 ### The Problem (that doesn't exist)
-Large collections of images quickly consume storage space and storing each image individually is inefficient and costly.
+Large collections of images quickly consume storage space.
 
 ### The Solution (that nobody asked for)
 We convert images into a single  video file, upload the video to YouTube for cloud storage and retrieve and view the images when needed, saving space.
@@ -46,7 +46,7 @@ Empty Dashboard <img width="2538" height="1233" alt="image" src="https://github.
 
 
 # Diagrams
-<img width="3366" height="1512" alt="image" src="https://github.com/user-attachments/assets/63e5fb1b-d0a7-495e-9d22-5f9e6e71049c" />
+<img width="1683" height="846" alt="diagram-export-8-9-2025-8_13_52-AM" src="https://github.com/user-attachments/assets/856fbe9c-e0c4-4f2b-8123-e406c0de429e" />
 user flow
 
 
